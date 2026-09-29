@@ -273,6 +273,7 @@
   .dt-hero.t-creature{border-top-color:var(--mousse);} .dt-hero.t-creature .dt-emblem{border-color:var(--mousse);}
   .dt-hero.t-guide{border-top-color:var(--noir);} .dt-hero.t-guide .dt-emblem{border-color:var(--noir);}
   .dt-hero.t-mat{border-top-color:var(--ocre);} .dt-hero.t-mat .dt-emblem{border-color:var(--ocre);}
+.pp-food-info{font-size:.82em; color:var(--sable); white-space:nowrap; margin-right:.4em;}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1083,11 +1084,18 @@ function persoLoad(){
   catch(e){ storageOK = false; }
 }
 function persoSave(){ try{ localStorage.setItem(PERSO_KEY, JSON.stringify(perso)); }catch(e){ storageOK = false; } }
-persoLoad();
+function migrateFood(){
+  if(!Array.isArray(perso.food)) perso.food = ['','',''];
+  while(perso.food.length<3) perso.food.push('');
+  perso.food.forEach(n=>{ if(n && itemByName(n) && !perso.owned[n]) perso.owned[n] = 1; });
+}
+persoLoad(); migrateFood(); persoSave();
 
 const SLOTS = [['tete','🪖 Tête'],['torse','🥋 Torse'],['jambes','👖 Jambes'],['cape','🧣 Cape'],['main','⚔️ En main'],['munition','🏹 Munitions'],['bouclier','🛡️ Bouclier']];
-function isOwnable(it){ return !!it.st && (it.t==='arme' || it.t==='outil' || it.t==='armure'); }
+function isOwnable(it){ return !!it.st && (it.t==='arme' || it.t==='outil' || it.t==='armure' || it.t==='nourriture'); }
+const INV_GROUPS = SLOTS.concat([['nourriture','🍖 Nourriture']]);
 function slotOf(it){
+  if(it.t==='nourriture') return 'nourriture';
   if(it.st && it.st.ammo) return 'munition';
   if(it.t==='arme' || it.t==='outil') return 'main';
   if(it.t!=='armure') return null;
@@ -1103,6 +1111,7 @@ function addOwned(name){ if(!perso.owned[name]) perso.owned[name] = 1; persoSave
 function removeOwned(name){
   delete perso.owned[name];
   Object.keys(perso.equip).forEach(s=>{ if(perso.equip[s]===name) perso.equip[s]=''; });
+  perso.food = perso.food.map(f=>f===name ? '' : f);
   persoSave(); refreshPerso();
 }
 function msNum(s){ const m = String(s||'').match(/([+-]?\d+)\s*%/); return m ? parseInt(m[1],10) : 0; }
@@ -1130,9 +1139,9 @@ function typesOf(dmg){
 const ppEl = document.getElementById('perso-page');
 ppEl.innerHTML =
   '<div class="pp-sec"><h3>Mon équipement</h3>' +
-  '<div class="pp-hint">Ajoutez ce que vous possédez, indiquez son niveau d\u2019amélioration, choisissez ce que vous portez : le récapitulatif calcule armure, vitesse, dégâts et efficacité contre une créature. Vous pouvez aussi utiliser le bouton « + Mon équipement » sur chaque carte du glossaire.</div>' +
+  '<div class="pp-hint">Ajoutez ce que vous possédez, indiquez son niveau d\u2019amélioration, choisissez ce que vous portez et les 3 plats que vous mangez : le récapitulatif calcule armure, vitesse, dégâts et efficacité contre une créature. Vous pouvez aussi utiliser le bouton « + Mon équipement » sur chaque carte du glossaire.</div>' +
   '<div id="pp-warn"></div></div>' +
-  '<div class="pp-sec"><h3>Ajouter un objet</h3><input type="text" id="pp-search" placeholder="Nom d\u2019une arme, armure, bouclier, outil, flèche…" autocomplete="off"><div id="pp-results"></div></div>' +
+  '<div class="pp-sec"><h3>Ajouter un objet</h3><input type="text" id="pp-search" placeholder="Arme, armure, bouclier, outil, flèche, plat…" autocomplete="off"><div id="pp-results"></div></div>' +
   '<div class="pp-sec"><h3>Mon inventaire</h3><div id="pp-inv"></div></div>' +
   '<div class="pp-sec"><h3>Ce que je porte</h3><div id="pp-slots"></div></div>' +
   '<div class="pp-sec"><h3>Résultat</h3><div id="pp-result"></div></div>' +
@@ -1163,12 +1172,19 @@ function renderPPInv(){
   const box = document.getElementById('pp-inv'); box.innerHTML='';
   const names = Object.keys(perso.owned).map(itemByName).filter(Boolean);
   if(!names.length){ box.textContent = 'Rien pour l\u2019instant. Ajoutez des objets ci-dessus.'; return; }
-  SLOTS.forEach(([slot,label])=>{
+  INV_GROUPS.forEach(([slot,label])=>{
     const list = names.filter(it=>slotOf(it)===slot); if(!list.length) return;
     const h = document.createElement('div'); h.className='pp-sub'; h.textContent=label; box.appendChild(h);
     list.forEach(it=>{
       const row = document.createElement('div'); row.className='pp-row';
       const nm = document.createElement('div'); nm.className='pp-name'; nm.textContent=it.fr; row.appendChild(nm);
+      if(slot==='nourriture'){
+        const st = it.st, info = document.createElement('span'); info.className='pp-food-info';
+        info.textContent = '❤️ ' + (st.hp||0) + ' · ⚡ ' + (st.sta||0) + (st.eitr ? ' · 🔮 ' + st.eitr : '');
+        row.appendChild(info);
+        const rm = document.createElement('button'); rm.type='button'; rm.textContent='Retirer'; rm.addEventListener('click', ()=>removeOwned(it.n));
+        row.appendChild(rm); box.appendChild(row); return;
+      }
       const sel = document.createElement('select'); const mq = maxQuality(it);
       for(let q=1;q<=mq;q++){ const o=document.createElement('option'); o.value=q; o.textContent='Niveau '+q; if(q===Math.min(perso.owned[it.n],mq)) o.selected=true; sel.appendChild(o); }
       if(mq===1) sel.disabled = true;
@@ -1193,17 +1209,19 @@ function renderPPSlots(){
     sel.addEventListener('change', ()=>{ perso.equip[slot]=sel.value; persoSave(); renderPPResult(); });
     row.appendChild(sel); box.appendChild(row);
   });
-  const foods = ITEMS.filter(it=>it.t==='nourriture' && it.st);
+  const foods = Object.keys(perso.owned).map(itemByName).filter(it=>it && it.t==='nourriture' && it.st)
+    .sort((a,b)=>((b.st.hp||0)+(b.st.sta||0)+(b.st.eitr||0))-((a.st.hp||0)+(a.st.sta||0)+(a.st.eitr||0)));
   for(let i=0;i<3;i++){
     const row = document.createElement('div'); row.className='pp-slot';
     const lb = document.createElement('label'); lb.textContent='🍖 Nourriture '+(i+1); row.appendChild(lb);
     const sel = document.createElement('select');
     const o0 = document.createElement('option'); o0.value=''; o0.textContent='— aucune —'; sel.appendChild(o0);
-    foods.forEach(f=>{ const o=document.createElement('option'); o.value=f.n; o.textContent=f.fr; if(perso.food[i]===f.n) o.selected=true; sel.appendChild(o); });
-    sel.addEventListener('change', ()=>{ perso.food[i]=sel.value; persoSave(); renderPPResult(); });
+    foods.filter(f=>perso.food[i]===f.n || !perso.food.includes(f.n)).forEach(f=>{ const o=document.createElement('option'); o.value=f.n; o.textContent=f.fr+' (❤️'+(f.st.hp||0)+' ⚡'+(f.st.sta||0)+(f.st.eitr?' 🔮'+f.st.eitr:'')+')'; if(perso.food[i]===f.n) o.selected=true; sel.appendChild(o); });
+    if(!foods.length) sel.disabled = true;
+    sel.addEventListener('change', ()=>{ perso.food[i]=sel.value; persoSave(); renderPPSlots(); renderPPResult(); });
     row.appendChild(sel); box.appendChild(row);
   }
-  const n = document.createElement('div'); n.className='pp-hint'; n.textContent='Nourriture : tous les plats cuisinés du glossaire sont proposés.'; box.appendChild(n);
+  const n = document.createElement('div'); n.className='pp-hint'; n.textContent= foods.length ? 'Nourriture : seuls les plats de votre inventaire sont proposés, un même plat ne peut être mangé qu\u2019une fois à la fois (comme dans le jeu).' : 'Nourriture : ajoutez d\u2019abord des plats à votre inventaire (recherche ci-dessus ou bouton « + Mon équipement » sur une carte).'; box.appendChild(n);
 }
 
 function ppRow(box, label, value, cls){
@@ -1229,7 +1247,7 @@ function renderPPResult(){
   if(main) any = true; if(sh) any = true; if(am) any = true;
   if(main) ms += msNum(main.it.st.ms);
   if(sh) ms += msNum(sh.it.st.ms);
-  const foods = perso.food.map(n=>n?itemByName(n):null).filter(f=>f && f.st);
+  const foods = perso.food.filter(n=>n && perso.owned[n]).map(itemByName).filter(f=>f && f.st);
   if(foods.length) any = true;
   if(!any){ box.textContent = 'Choisissez au moins une pièce ci-dessus pour voir le résultat.'; renderPPVs(); return; }
 
@@ -1328,7 +1346,7 @@ document.getElementById('pp-import').addEventListener('click', ()=>{
   try{
     const o = JSON.parse(document.getElementById('pp-data').value);
     perso = {owned:o.owned||{}, equip:o.equip||{}, food:o.food||['','',''], target:o.target||''};
-    persoSave(); renderPPTarget(); refreshPerso(); render();
+    migrateFood(); persoSave(); renderPPTarget(); refreshPerso(); render();
   }catch(e){ document.getElementById('pp-data').value = 'Code invalide.'; }
 });
 document.getElementById('pp-clear').addEventListener('click', ()=>{

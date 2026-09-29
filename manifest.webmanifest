@@ -1,0 +1,17 @@
+{
+  "name": "Glossaire de Valheim",
+  "short_name": "Valheim",
+  "description": "Glossaire complet de Valheim hors-ligne, en français",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#53341a",
+  "theme_color": "#53341a",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

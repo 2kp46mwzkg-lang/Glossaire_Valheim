@@ -1,6 +1,6 @@
 // Cache hors-ligne du Glossaire de Valheim.
 // Changer VERSION à chaque mise à jour des fichiers.
-const VERSION = 'valheim-v4';
+const VERSION = 'valheim-v7';
 const FILES = ['./', './index.html', './manifest.webmanifest',
   './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
